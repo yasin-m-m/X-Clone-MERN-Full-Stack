@@ -1,12 +1,12 @@
 import bcrypt from 'bcryptjs';
 import { User } from '../model/user.model.js';
-import { generateToken } from '../utils/generateToken.js';
+import jwt from "jsonwebtoken";
 
 export const signUp =async(req,res)=>{
     try {
 
-        const {userName, fullName, password, email } = req.body
-        if (!userName || !fullName || !password || !email) {
+        const {username, fullName, password, email } = req.body
+        if (!username || !fullName || !password || !email) {
          return res.status(400).json({error: 'All fields are required'})
         }
         // validate email
@@ -20,8 +20,8 @@ export const signUp =async(req,res)=>{
             return res.status(400).json({error: 'Invalid password. Password must contain at least 6 characters, including uppercase, lowercase, numbers, and special characters'})
         }
         // validate username
-        const userNameRegex = /^[a-zA-Z0-9]+$/
-        if(!userNameRegex.test(userName)){
+        const usernameRegex = /^[a-zA-Z0-9]+$/
+        if(!usernameRegex.test(username)){
             return res.status(400).json({msg: 'Invalid username. Username must contain only alphanumeric characters'})
         }
 
@@ -33,23 +33,28 @@ export const signUp =async(req,res)=>{
         
         // check if user already exists
         const isEmail = await User.findOne({email})
-        const isUserName = await User.findOne({userName})
-        if(isEmail && isUserName){
+        const isUsername = await User.findOne({username})
+        if(isEmail && isUsername){
             return res.status(400).json({msg: 'User already exists'})
         }
         // hash password using bcryptjs
         const hashedPassword = await bcrypt.hash(password, 10)
 
         // create new user
-        const newUser = new User({userName, fullName, password: hashedPassword, email})
-        if (newUser) {
-            generateToken(newUser._id, res)
-            await newUser.save()
-            res.status(201).json({message: 'User created successfully',newUser})
-        } else {
-            res.status(400).json({error: 'Failed to create user'})
-            
+        const newUser = await User.create({username, fullName, password: hashedPassword, email})
+        const token=jwt.sign({id:newUser._id},process.env.JWT_SECRET,{expiresIn:process.env.JWT_EXPIRES})
+        
+        const options={
+            expires: new Date(
+                Date.now()+process.env.COOKIE_EXPIRES_TIME*24*60*60*1000
+            ),
+            httpOnly: true
         }
+        res.status(201).cookie('jwt',token,options).json({
+            success: true,
+            data: newUser,
+            token
+        })
         
         
        
@@ -65,7 +70,7 @@ export const logIn =async(req,res)=>{
         if (!username || !password) {
          return res.status(400).json({error: 'All fields are required'})
         }
-        const user = await User.findOne({userName: username})
+        const user = await User.findOne({username: username})
         if(!user){
             return res.status(401).json({error: 'User not found'}) 
         }
@@ -73,8 +78,18 @@ export const logIn =async(req,res)=>{
         if(!isMatch){
             return res.status(401).json({error: 'Invalid credentials'}) 
         }
-        generateToken(user._id, res)
-        res.status(200).json({message: 'Logged in successfully',user})
+        const token = jwt.sign({id:user._id}, process.env.JWT_SECRET,{expiresIn:process.env.JWT_EXPIRES})
+            const options={
+            expires: new Date(
+            Date.now()+process.env.COOKIE_EXPIRES_TIME*24*60*60*1000
+        ),
+            httpOnly: true
+    }
+    res.status(200).cookie('jwt',token,options).json({
+        success: true,
+        data: user,
+        token
+    })
     } catch (error) {
         console.log(`This error is from logIn controller. The error is: ${error}`);
         res.status(500).json({error:"Internal Server Error"})
@@ -83,10 +98,26 @@ export const logIn =async(req,res)=>{
 }
 export const logOut =async(req,res)=>{
     try {
-        
+        res.cookie('jwt','',{
+            expires: new Date(Date.now()),
+            httpOnly: true
+        }).status(200).json({
+            success: true,
+            message: 'Logged out successfully'
+        })
     } catch (error) {
         console.log(`This error is from logOut controller. The error is: ${error}`);
         res.status(500).json({error:"Internal Server Error"})
         
+    }
+}
+
+export const getMe=async(req,res)=>{
+    try {
+        const user =await User.findById(req.user.id).select('-password')
+        res.status(200).json(user)
+    } catch (error) {
+        console.log(`This error is from logOut controller. The error is: ${error}`);
+        res.status(500).json({error:"Internal Server Error"})
     }
 }
