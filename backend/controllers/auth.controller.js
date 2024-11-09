@@ -7,7 +7,7 @@ export const signUp =async(req,res)=>{
 
         const {username, fullName, password, email } = req.body
         if (!username || !fullName || !password || !email) {
-         return res.status(400).json({error: 'All fields are required'})
+         return res.status(499).json({error: 'All fields are required'})
         }
         // validate email
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -35,7 +35,7 @@ export const signUp =async(req,res)=>{
         const isEmail = await User.findOne({email})
         const isUsername = await User.findOne({username})
         if(isEmail && isUsername){
-            return res.status(400).json({message: 'User already exists'})
+            return res.status(409).json({message: 'User already exists'})
         }
         // hash password using bcryptjs
         const hashedPassword = await bcrypt.hash(password, 10)
@@ -69,7 +69,7 @@ export const logIn =async(req,res)=>{
     try {
         const {username, password } = req.body
         if (!username || !password) {
-         return res.status(400).json({error: 'All fields are required'})
+         return res.status(499).json({error: 'All fields are required'})
         }
         const user = await User.findOne({username: username})
         if(!user){

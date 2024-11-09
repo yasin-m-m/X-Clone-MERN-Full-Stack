@@ -7,6 +7,7 @@ import postRoute from './routes/post.route.js'
 import notificationRoute from './routes/notification.route.js'
 import cookieParser from 'cookie-parser';
 import cloudinary from 'cloudinary'
+import cors from 'cors'
 dotenv.config()
 
 cloudinary.config({
@@ -15,12 +16,20 @@ cloudinary.config({
     api_secret: process.env.CLOUDINARY_API_SECRET,
 
 })
+
 const app = express();
 const PORT= process.env.PORT || 8000
 
-
+app.use(cors({
+    origin: ['http://localhost:5173'],
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}))
 app.use(express.json())
 app.use(cookieParser())
+
+app.use(express.urlencoded({ extended: true }))
 
 app.use('/api/auth', authRoute)
 app.use('/api/user', userRoute)
