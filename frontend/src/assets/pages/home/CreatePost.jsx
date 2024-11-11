@@ -2,23 +2,66 @@ import { CiImageOn } from "react-icons/ci";
 import { BsEmojiSmileFill } from "react-icons/bs";
 import { useRef, useState } from "react";
 import { IoCloseSharp } from "react-icons/io5";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import toast from "react-hot-toast";
+import LoadingSpinner from "../../../components/common/LoadingSpinner";
+import { baseUrl } from "../../../constant/url";
 
 const CreatePost = () => {
 	const [text, setText] = useState("");
-	const [img, setImg] = useState(null);
+	const [image, setImage] = useState(null);
+	const [error,setError] = useState(null)
 
 	const imgRef = useRef(null);
+	const {data:authUser}=useQuery({queryKey:["authUser"]})
+	const queryClient = useQueryClient();
+	
+	const {mutate: createPost, isPending, isError } = useMutation({
+		mutationFn: async ({text, image}) => {
+			try {
+               
+                const res = await fetch(`${baseUrl}/api/post/create`, {
+                    method: "POST",
+                    credentials: "include",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({text, image}),
+                });
+                const data = await res.json();
+				console.log(data);
+				
+				if (!res.ok) {
+                    throw new Error(setError(data.error) || "something went wrong");
+					
+                }
+				toast.success("Post created successfully");
+				queryClient.invalidateQueries({
+					queryKey:["posts"]
+				})
+            setImage(null);
+            setText("");
+				
+                return data
+                
+            } catch (error) {
+                toast.error("Failed to create post");
+				console.log(error);
+				setError(data.error);
+				
+            }
+		},
+		
+	})
 
-	const isPending = false;
-	const isError = false;
 
 	const data = {
-		profileImg: "/avatars/boy1.png",
+		profileImg: authUser.profileImg,
 	};
 
 	const handleSubmit = (e) => {
 		e.preventDefault();
-		alert("Post created successfully");
+		createPost({text, image});
 	};
 
 	const handleImgChange = (e) => {
@@ -26,7 +69,7 @@ const CreatePost = () => {
 		if (file) {
 			const reader = new FileReader();
 			reader.onload = () => {
-				setImg(reader.result);
+				setImage(reader.result);
 			};
 			reader.readAsDataURL(file);
 		}
@@ -46,16 +89,16 @@ const CreatePost = () => {
 					value={text}
 					onChange={(e) => setText(e.target.value)}
 				/>
-				{img && (
+				{image && (
 					<div className='relative w-72 mx-auto'>
 						<IoCloseSharp
 							className='absolute top-0 right-0 text-white bg-gray-800 rounded-full w-5 h-5 cursor-pointer'
 							onClick={() => {
-								setImg(null);
+								setImage(null);
 								imgRef.current.value = null;
 							}}
 						/>
-						<img src={img} className='w-full mx-auto h-72 object-contain rounded' />
+						<img src={image} className='w-full mx-auto h-72 object-contain rounded' />
 					</div>
 				)}
 
@@ -69,10 +112,10 @@ const CreatePost = () => {
 					</div>
 					<input type='file' hidden ref={imgRef} onChange={handleImgChange} />
 					<button className='btn btn-primary rounded-full btn-sm text-white px-4'>
-						{isPending ? "Posting..." : "Post"}
+						{isPending ? <LoadingSpinner size="sm"/> : "Post"}
 					</button>
 				</div>
-				{isError && <div className='text-red-500'>Something went wrong</div>}
+				{error && <div className='text-red-500'>{error}</div>}
 			</form>
 		</div>
 	);

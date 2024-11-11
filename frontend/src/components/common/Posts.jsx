@@ -1,11 +1,10 @@
 import Post from "./Post";
 import PostSkeleton from "../skeletons/PostSkeleton";
-import { POSTS } from "../../utils/db/dummy";
 import { baseUrl } from "../../constant/url";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
 
-const Posts = ({feedType}) => {
+const Posts = ({feedType, username, userId}) => {
 
 	const getPostEndPoint =()=>{
 		switch (feedType) {
@@ -13,6 +12,10 @@ const Posts = ({feedType}) => {
 				return `${baseUrl}/api/post/posts`
 			case "following":
 				return `${baseUrl}/api/post/following`
+			case "posts":
+				return `${baseUrl}/api/user/${username}`
+			case "likes":
+				return `${baseUrl}/api/post/like/${userId}`
 		
 			default:
 				return `${baseUrl}/api/post/posts`

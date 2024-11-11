@@ -4,32 +4,80 @@ import LoadingSpinner from "../../../components/common/LoadingSpinner";
 import { IoSettingsOutline } from "react-icons/io5";
 import { FaUser } from "react-icons/fa";
 import { FaHeart } from "react-icons/fa6";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import toast from "react-hot-toast";
+import { baseUrl } from "../../../constant/url";
 
 const NotificationPage = () => {
-	const isLoading = false;
-	const notifications = [
-		{
-			_id: "1",
-			from: {
-				_id: "1",
-				username: "johndoe",
-				profileImg: "/avatars/boy2.png",
-			},
-			type: "follow",
-		},
-		{
-			_id: "2",
-			from: {
-				_id: "2",
-				username: "janedoe",
-				profileImg: "/avatars/girl1.png",
-			},
-			type: "like",
-		},
-	];
 
+	const queryClient= useQueryClient()
+	
+	const {data:notifications, isLoading}=useQuery({
+		queryKey: ["notification"],
+        queryFn: async () => {
+            try {
+				// Fetch notifications from the API
+            // Replace this with your actual API endpoint
+            const res = await fetch(`${baseUrl}/api/notification`,{
+				method: "GET",
+                credentials: "include",
+                headers: {
+					    "Content-Type": "application/json",
+                        "Accept": "application/json"
+                    
+				}
+			});
+            if (!res.ok) {
+                throw new Error("Failed to fetch notifications");
+            }
+            const data = await res.json();
+			return data;
+			} catch (error) {
+				console.error("Error fetching notifications:", error.message);
+				
+			}
+        },
+        onError: (error) => {
+            console.error("Error fetching notifications:", error.message);
+        },
+        // Fetch the data once every 5 minutes
+        refetchInterval: 5 * 60 * 1000,
+	})
+
+	const {mutate:deleteNotification}=useMutation({
+		mutationFn: async () => {
+            try {
+                // Delete a notification from the API
+            // Replace this with your actual API endpoint
+            const res = await fetch(`${baseUrl}/api/notification`,{
+                method: "DELETE",
+                credentials: "include",
+                headers: {
+                        "Content-Type": "application/json",
+                        "Accept": "application/json"
+                    
+                }
+            });
+            if (!res.ok) {
+                throw new Error("Failed to delete notification");
+            }
+            const data = await res.json();
+			queryClient.invalidateQueries({ queryKey: ["notification"] })
+            return data;
+            } catch (error) {
+                console.error("Error deleting notification:", error.message);
+            }
+        },
+		onSuccess:()=>{
+			toast.success("Successfully deleted notification")
+			
+		},
+        onError: (error) => {
+            console.error("Error deleting notification:", error.message);
+        },
+	})
 	const deleteNotifications = () => {
-		alert("All notifications deleted");
+		deleteNotification()
 	};
 
 	return (

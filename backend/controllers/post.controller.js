@@ -5,7 +5,8 @@ import { User } from '../model/user.model.js';
 
 export const createPost =async(req,res,next)=>{
 try {
-    const { text, image } = req.body;
+    const {text} = req.body;
+    let {image}= req.body
     if (!text &&!image) {
         return res.status(400).json({error: 'Text or Image field is required'})
     }
@@ -14,9 +15,9 @@ try {
          image=uploadedResponse.secure_url
     }
     const newPost = new Post({
-        user: req.user._id,
+        user: req.user._id.toString(),
         text,
-        image
+        image,
     })
     await newPost.save()
     res.status(201).json(newPost)
@@ -44,11 +45,13 @@ try {
         await User.updateOne({_id:userId}, {$pull:{likedPost:postId}})
         await post.save()
         await user.save()
-        res.status(200).json({message:"un Like"})
+        const updatedLikes = post.likes.filter((id)=>id.toString()!==userId.toString())
+        res.status(200).json(updatedLikes)
     } else {
         post.likes.push(userId)
         await User.updateOne({_id:userId}, {$push:{likedPost:postId}})
         await post.save()
+
         //send notification
         const id = post.user
     
@@ -59,7 +62,7 @@ try {
             })
             
             await notification.save()
-            res.status(201).json({post, notification})
+            return res.status(201).json(post.likes)
         
     }
    

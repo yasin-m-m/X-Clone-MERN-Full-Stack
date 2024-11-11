@@ -9,11 +9,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import LoadingSpinner from "./LoadingSpinner";
 import toast from "react-hot-toast";
 import { baseUrl } from "../../constant/url";
+import { formatPostDate } from "../../utils/date";
 
 const Post = ({ post }) => {
 	const [comment, setComment] = useState("");
 	const postOwner = post.user;
-	const isLiked = false;
+	
 
 const {data:authUser}=useQuery({
 	queryKey:["authUser"]
@@ -49,10 +50,88 @@ const {mutate:deletePost, isPending:isDeleting}=useMutation({
     }
     
 })
-	const isMyPost=authUser._id == post.user._id
-	const formattedDate = "1h";
 
-	const isCommenting = false;
+const {mutate:likePost, isPending:isLiking}=useMutation({
+	mutationFn: async ()=>{
+        try {
+           const res= await fetch(`${baseUrl}/api/post/like/${post._id}`,{
+                method: "POST",
+                credentials:"include",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Accept": "application/json"
+                }
+            })
+            const data = await res.json()
+            if (!res.ok) {
+                throw new Error(data.error||"something went wrong");
+            }
+			
+
+            return data;
+        } catch (error) {
+            return toast.error("Failed to like post"+error.message);
+        }
+    },
+
+	onSuccess: (updatedLikes) => {
+		// this is not the best UX, bc it will refetch all posts
+		// queryClient.invalidateQueries({ queryKey: ["posts"] });
+
+		// instead, update the cache directly for that post
+		queryClient.setQueryData(["posts"], (oldData) => {
+			return oldData.map((p) => {
+				if (p._id === post._id) {
+					return { ...p, likes: updatedLikes };
+				}
+				return p;
+			});
+		});
+	},
+	onError: (error) => {
+		toast.error(error.message);
+	},
+   
+})
+
+const {mutate:commentPost, isPending:isCommenting}=useMutation({
+	mutationFn: async ({comment})=>{
+        try {
+            const res= await fetch(`${baseUrl}/api/post/comment/${post._id}`,{
+                method: "POST",
+                credentials:"include",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Accept": "application/json"
+                },
+                body: JSON.stringify({text:comment})
+            })
+            const data = await res.json()
+            if (!res.ok) {
+                throw new Error(data.error||"something went wrong");
+            }
+            
+
+            return data;
+        } catch (error) {
+            return toast.error("Failed to comment post"+error.message);
+        }
+    },
+	onSuccess: () => {
+		toast.success("Comment posted successfully");
+		setComment("");
+		queryClient.invalidateQueries({ queryKey: ["posts"] });
+	},
+	onError: (error) => {
+		toast.error(error.message);
+	},
+
+})
+const isLiked = post.likes.includes(authUser._id);
+	const isMyPost=authUser._id == post.user._id
+	const formattedDate = formatPostDate(post.createdAt);
+
+	// const isCommenting = false;
 
 	const handleDeletePost = () => {
 		deletePost()
@@ -60,9 +139,16 @@ const {mutate:deletePost, isPending:isDeleting}=useMutation({
 
 	const handlePostComment = (e) => {
 		e.preventDefault();
+		if (isCommenting) return;
+		commentPost({ comment });
 	};
 
-	const handleLikePost = () => {};
+	const handleLikePost = () => {
+		if (isLiking) {
+			return
+		}
+		likePost()
+	};
 
 	return (
 		<>
@@ -92,9 +178,9 @@ const {mutate:deletePost, isPending:isDeleting}=useMutation({
 					</div>
 					<div className='flex flex-col gap-3 overflow-hidden'>
 						<span>{post.text}</span>
-						{post.img && (
+						{post.image && (
 							<img
-								src={post.img}
+								src={post.image}
 								className='h-80 object-contain rounded-lg border border-gray-700'
 								alt=''
 							/>
@@ -154,7 +240,7 @@ const {mutate:deletePost, isPending:isDeleting}=useMutation({
 										/>
 										<button className='btn btn-primary rounded-full btn-sm text-white px-4'>
 											{isCommenting ? (
-												<span className='loading loading-spinner loading-md'></span>
+												<LoadingSpinner size="md" />
 											) : (
 												"Post"
 											)}
@@ -170,13 +256,14 @@ const {mutate:deletePost, isPending:isDeleting}=useMutation({
 								<span className='text-sm text-slate-500 group-hover:text-green-500'>0</span>
 							</div>
 							<div className='flex gap-1 items-center group cursor-pointer' onClick={handleLikePost}>
-								{!isLiked && (
+							{isLiking && <LoadingSpinner size="sm" />}
+								{!isLiked && !isLiking &&(
 									<FaRegHeart className='w-4 h-4 cursor-pointer text-slate-500 group-hover:text-pink-500' />
 								)}
-								{isLiked && <FaRegHeart className='w-4 h-4 cursor-pointer text-pink-500 ' />}
+								{isLiked && !isLiking &&( <FaRegHeart className='w-4 h-4 cursor-pointer text-pink-500 ' />)}
 
 								<span
-									className={`text-sm text-slate-500 group-hover:text-pink-500 ${
+									className={`text-sm group-hover:text-pink-500 ${
 										isLiked ? "text-pink-500" : ""
 									}`}
 								>

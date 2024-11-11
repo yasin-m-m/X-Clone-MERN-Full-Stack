@@ -77,7 +77,7 @@ export const getSuggestedUsers = async(req, res) => {
 // update user with change username, fullName,email,bio and link
 export const updateUserProfile = async(req, res) => {
     try {
-        const { username, fullName, email, bio, link } = req.body
+        const { username, fullName, email, bio, link, currentPassword, newPassword} = req.body
 
         //validate username, email
         const usernameRegex = /^[a-zA-Z0-9]+$/
@@ -99,9 +99,28 @@ export const updateUserProfile = async(req, res) => {
         if (existingUser && existingUser._id.toString()!== req.user._id.toString()) {
             return res.status(400).json({ msg: 'Username or email already exists' })
         }
-        const user = await User.findByIdAndUpdate(req.user._id, { username, fullName, email, bio, link }, { new: true })
+        const user = await User.findById(req.user._id)
         if (!user) return res.status(404).json({ error: 'User not found' })
-        res.status(200).json(user)
+        //validate new password
+    if (newPassword) {
+        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/
+        if (!passwordRegex.test(newPassword)) {
+            return res.status(400).json({ msg: 'Invalid password. Password must contain at least 8 characters, including at least one uppercase letter, one lowercase letter, one number, and one special character' })
+        }
+        const salt = await bcrypt.genSalt(10)
+        const hashedPassword = await bcrypt.hash(newPassword, salt)
+        user.password = hashedPassword
+    }
+    
+    user.username = username; 
+    user.fullName = fullName;
+    user.email = email;
+    user.bio = bio;
+    user.link = link;
+    user.updatedAt = new Date();  //update updatedAt timestamp
+    await user.save();
+
+    res.status(200).json(user)
     } catch (error) {
         console.log(`This error is from updateUserProfile controller. The error is: ${error}`);
         res.status(500).json({ error: 'Internal Server Error' })
@@ -109,32 +128,35 @@ export const updateUserProfile = async(req, res) => {
 }
 
 //update profile Image
-export const updateProfileImage = async(req, res) => {
-    try {
-        const userId= req.user._id
-        const user= await User.findById(userId)
-        const {profileImg,coverImg}= req.body
-        if (profileImg) {
-            if (user.profileImg) {
-                 await cloudinary.uploader.destroy(user.profileImg.split('/').pop().split('.')[0])
-            }
-            const uploadedResponse = await cloudinary.uploader.upload(profileImg)
-            return profileImg = uploadedResponse.secure_url
-        }
-        if (coverImg) {
-            if (user.coverImg) {
-                await cloudinary.uploader.destroy(user.coverImg.split('/').pop().split('.')[0])
-           }
-            const uploadedResponse = await cloudinary.uploader.upload(coverImg)
-            return coverImg = uploadedResponse.secure_url
-        }
-        await User.findByIdAndUpdate(userId, { profileImg, coverImg }, {new: true} )
-        res.status(200).json("success")
-    } catch (error) {
-        console.log(`This error is from updateProfileImage controller. The error is: ${error}`);
-        res.status(500).json({ error: 'Internal Server Error' })
-    }
-}
+export const updateProfileImage = async (req, res) => {  
+    try {  
+      const userId = req.user._id;  
+      const user = await User.findById(userId);  
+      let { profileImg, coverImg } = req.body;  
+   
+      if (profileImg) {  
+        if (user.profileImg) {  
+          await cloudinary.uploader.destroy(user.profileImg.split('/').pop().split('.')[0]);  
+        }  
+        const uploadedResponse = await cloudinary.uploader.upload(profileImg);  
+        user.profileImg = uploadedResponse.secure_url;  
+      }  
+   
+      if (coverImg) {  
+        if (user.coverImg) {  
+          await cloudinary.uploader.destroy(user.coverImg.split('/').pop().split('.')[0]);  
+        }  
+        const uploadedResponse = await cloudinary.uploader.upload(coverImg);  
+        user.coverImg = uploadedResponse.secure_url;  
+      }  
+   
+      await user.save(); // Save the updated user  
+      res.status(200).json(user);  
+    } catch (error) {  
+      console.log(`This error is from updateProfileImage controller. The error is: ${error}`);  
+      res.status(500).json({ error: 'Internal Server Error' });  
+    }  
+  };  
 
 //change new password
 export const changePassword = async(req, res) => {
