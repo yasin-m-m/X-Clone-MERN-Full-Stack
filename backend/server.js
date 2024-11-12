@@ -8,7 +8,12 @@ import notificationRoute from './routes/notification.route.js'
 import cookieParser from 'cookie-parser';
 import cloudinary from 'cloudinary'
 import cors from 'cors'
+import path from 'path'
 dotenv.config()
+
+const app = express();
+const PORT= process.env.PORT || 8000
+const __dirname = path.resolve()
 
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -17,8 +22,6 @@ cloudinary.config({
 
 })
 
-const app = express();
-const PORT= process.env.PORT || 8000
 
 app.use(cors({
     origin: ['http://localhost:5173'],
@@ -39,6 +42,14 @@ app.use('/api/auth', authRoute)
 app.use('/api/user', userRoute)
 app.use('/api/post', postRoute)
 app.use('/api/notification', notificationRoute)
+
+if (process.env.NODE_ENV == 'production') {
+    app.use(express.static(path.join(__dirname,'/frontend/dist')))
+    app.use('*',(req,res)=>{
+        res.sendFile(path.resolve(__dirname,'/frontend/dist/index.html'))
+    })
+}
+
 app.listen(PORT, ()=>{
     console.log(`Server is running on port ${PORT}`)
     connectDb()

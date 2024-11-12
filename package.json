@@ -4,8 +4,8 @@
   "description": "X-Clone Created Using MERN",
   "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node backend/server.js",
+    "build":"npm install && npm install --include=dev --prefix frontend && npm run build --prefix frontend",
     "dev": "nodemon backend/server.js"
   },
   "author": "Yasin M M",
